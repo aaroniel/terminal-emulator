@@ -1,4 +1,5 @@
 import javax.swing.*;
+import javax.swing.plaf.BorderUIResource;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -24,19 +25,40 @@ public class Terminal extends JFrame {
         this.scriptPath = scriptPath;
 
         setTitle("Terminal");
-        setSize(600, 400);
+        setSize(800, 500);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+
+        Color bg = new Color(15, 15, 15);
+        Color fg = new Color(200, 200, 200);
+        Color prompt = new Color(0, 200, 0);
 
         outputArea = new JTextArea();
         outputArea.setEditable(false);
-        outputArea.setFont(new Font("Monospaced", Font.PLAIN, 22));
-        JScrollPane scrollPane = new JScrollPane(outputArea);
+        outputArea.setBackground(bg);
+        outputArea.setForeground(fg);
+        outputArea.setCaretColor(fg);
+        outputArea.setFont(new Font("Brass Mono", Font.PLAIN, 24));
 
-        promptLabel = new JLabel("user@this-pc ~ -> ");
-        promptLabel.setFont(new Font("Monospaced", Font.PLAIN, 22));
+        JScrollPane scrollPane = new JScrollPane(outputArea);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+
+        promptLabel = new JLabel("user@this-pc ~ $ ");
+        promptLabel.setFont(new Font("Brass Mono", Font.BOLD, 24));
+        promptLabel.setBackground(bg);
+        promptLabel.setForeground(prompt);
 
         inputField = new JTextField();
-        inputField.setFont(new Font("Monospaced", Font.PLAIN, 22));
+        inputField.setFont(new Font("Brass Mono", Font.PLAIN, 24));
+        inputField.setBackground(bg);
+        inputField.setForeground(fg);
+        inputField.setCaretColor(fg);
+        inputField.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+
+        JPanel inputPanel = new JPanel(new BorderLayout());
+        inputPanel.setBackground(bg);
+        inputPanel.add(promptLabel, BorderLayout.WEST);
+        inputPanel.add(inputField, BorderLayout.CENTER);
+
         inputField.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -46,10 +68,6 @@ public class Terminal extends JFrame {
             }
         });
 
-        JPanel inputPanel = new JPanel(new BorderLayout());
-        inputPanel.add(promptLabel, BorderLayout.WEST);
-        inputPanel.add(inputField, BorderLayout.CENTER);
-
         this.setLayout(new BorderLayout());
         this.add(scrollPane, BorderLayout.CENTER);
         this.add(inputPanel, BorderLayout.SOUTH);
@@ -57,9 +75,9 @@ public class Terminal extends JFrame {
         runStartupScript();
     }
 
-    private void handleCommand(String input) {
+    private int handleCommand(String input) {
         if (input.isEmpty()) {
-            return;
+            return 0;
         }
         String command;
         String[] arguments;
@@ -80,18 +98,18 @@ public class Terminal extends JFrame {
                     outputArea.append(arg + ' ');
                 }
                 logEvent(command, arguments, "Executed successfully", false);
-                break;
+                return 0;
             case "cd":
                 outputArea.setText("Command: cd\nArgs: ");
                 for (String arg : arguments) {
                     outputArea.append(arg + ' ');
                 }
                 logEvent(command, arguments, "Executed successfully", false);
-                break;
+                return 0;
             case "clear":
                 outputArea.setText("");
                 logEvent(command, arguments, "Screen cleared", false);
-                break;
+                return 0;
             case "echo":
                 try {
                     if (arguments.length > 0 && arguments[0].equals("$HOME")) {
@@ -99,20 +117,22 @@ public class Terminal extends JFrame {
                     }
                     outputArea.setText(arguments[0]);
                     logEvent(command, arguments, "Echo output", false);
+                    return 0;
                 }
                 catch (Exception e) {
                     outputArea.setText("Error is echo command");
                     logEvent(command, arguments, e.getMessage(), true);
+                    return -1;
                 }
-                break;
             case "exit":
                 logEvent(command, arguments, "Program exited", false);
                 System.exit(0);
-                break;
+                return 0;
 
             default:
                 outputArea.setText("Unknown command");
                 logEvent(command, arguments, "Unknown command", true);
+                return -1;
         }
     }
 
@@ -120,13 +140,13 @@ public class Terminal extends JFrame {
         try (FileWriter fw = new FileWriter(logPath, true)) {
             String username = System.getProperty("user.name");
             fw.write("<event>\n");
-            fw.write("<user>" + username + "</user>\n");
-            fw.write("<command>" + command + "</command>\n");
-            fw.write("<args>" + args + "</args>\n");
-            fw.write("<message>" + message + "</message>\n");
-            fw.write("<error>" + isError + "</error>\n");
-            fw.write("<time>" + new Date() + "</time>\n");
-            fw.write("</event>");
+            fw.write("\t<user>" + username + "</user>\n");
+            fw.write("\t<command>" + command + "</command>\n");
+            fw.write("\t<args>" + args + "</args>\n");
+            fw.write("\t<message>" + message + "</message>\n");
+            fw.write("\t<error>" + isError + "</error>\n");
+            fw.write("\t<time>" + new Date() + "</time>\n");
+            fw.write("</event>\n\n");
         }
         catch (IOException ioe) {
             ioe.printStackTrace();
@@ -139,7 +159,9 @@ public class Terminal extends JFrame {
             while ((line = br.readLine()) != null) {
                 outputArea.append(promptLabel.getText() + line + "\n");
                 try {
-                    handleCommand(line);
+                    if (handleCommand(line) != 0) {
+                        break;
+                    }
                 }
                 catch (Exception e) {
                     outputArea.append("Error executing: " + line + "\n");
