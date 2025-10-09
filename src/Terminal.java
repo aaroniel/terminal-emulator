@@ -2,9 +2,12 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Date;
+import java.util.concurrent.ExecutionException;
 
 public class Terminal extends JFrame {
     private final String vfsPath;
@@ -50,6 +53,8 @@ public class Terminal extends JFrame {
         this.setLayout(new BorderLayout());
         this.add(scrollPane, BorderLayout.CENTER);
         this.add(inputPanel, BorderLayout.SOUTH);
+
+        runStartupScript();
     }
 
     private void handleCommand(String input) {
@@ -122,6 +127,26 @@ public class Terminal extends JFrame {
             fw.write("<error>" + isError + "</error>\n");
             fw.write("<time>" + new Date() + "</time>\n");
             fw.write("</event>");
+        }
+        catch (IOException ioe) {
+            ioe.printStackTrace();
+        }
+    }
+
+    private void runStartupScript() {
+        try (BufferedReader br = new BufferedReader(new FileReader(scriptPath))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                outputArea.append(promptLabel.getText() + line + "\n");
+                try {
+                    handleCommand(line);
+                }
+                catch (Exception e) {
+                    outputArea.append("Error executing: " + line + "\n");
+                    logEvent("script", new String[]{line}, e.getMessage(), true);
+                    break;
+                }
+            }
         }
         catch (IOException ioe) {
             ioe.printStackTrace();
