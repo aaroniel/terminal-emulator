@@ -2,13 +2,24 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Date;
 
 public class Terminal extends JFrame {
+    private final String vfsPath;
+    private final String logPath;
+    private final String scriptPath;
+
     private final JTextArea outputArea;
     private final JTextField inputField;
     private final JLabel promptLabel;
 
-    public Terminal() {
+    public Terminal(String vfsPath, String logPath, String scriptPath) {
+        this.vfsPath = vfsPath;
+        this.logPath = logPath;
+        this.scriptPath = scriptPath;
+
         setTitle("Terminal");
         setSize(600, 400);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -52,8 +63,7 @@ public class Terminal extends JFrame {
         if (spaceIndex == -1) {
             command = input;
             arguments = new String[0];
-        }
-        else {
+        } else {
             command = input.substring(0, spaceIndex);
             arguments = input.substring(spaceIndex + 1).split("\\s+");
         }
@@ -64,31 +74,60 @@ public class Terminal extends JFrame {
                 for (String arg : arguments) {
                     outputArea.append(arg + ' ');
                 }
+                logEvent(command, arguments, "Executed successfully", false);
                 break;
             case "cd":
                 outputArea.setText("Command: cd\nArgs: ");
                 for (String arg : arguments) {
                     outputArea.append(arg + ' ');
                 }
+                logEvent(command, arguments, "Executed successfully", false);
                 break;
             case "clear":
                 outputArea.setText("");
+                logEvent(command, arguments, "Screen cleared", false);
                 break;
             case "echo":
-                if (arguments[0].equals("$HOME")) {
-                    arguments[0] = System.getProperty("user.home");
+                try {
+                    if (arguments.length > 0 && arguments[0].equals("$HOME")) {
+                        arguments[0] = System.getProperty("user.home");
+                    }
+                    outputArea.setText(arguments[0]);
+                    logEvent(command, arguments, "Echo output", false);
                 }
-                outputArea.setText(arguments[0]);
+                catch (Exception e) {
+                    outputArea.setText("Error is echo command");
+                    logEvent(command, arguments, e.getMessage(), true);
+                }
                 break;
             case "exit":
+                logEvent(command, arguments, "Program exited", false);
                 System.exit(0);
                 break;
 
             default:
                 outputArea.setText("Unknown command");
+                logEvent(command, arguments, "Unknown command", true);
         }
     }
 
+    private void logEvent(String command, String[] args, String message, boolean isError) {
+        try (FileWriter fw = new FileWriter(logPath, true)) {
+            String username = System.getProperty("user.name");
+            fw.write("<event>\n");
+            fw.write("<user>" + username + "</user>\n");
+            fw.write("<command>" + command + "</command>\n");
+            fw.write("<args>" + args + "</args>\n");
+            fw.write("<message>" + message + "</message>\n");
+            fw.write("<error>" + isError + "</error>\n");
+            fw.write("<time>" + new Date() + "</time>\n");
+            fw.write("</event>");
+        }
+        catch (IOException ioe) {
+            ioe.printStackTrace();
+        }
+    }
+    
     public void setFocus() {
         this.inputField.requestFocusInWindow();
     }
