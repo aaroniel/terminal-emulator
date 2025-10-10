@@ -1,5 +1,8 @@
 import javax.swing.*;
 import javax.swing.plaf.BorderUIResource;
+import javax.swing.plaf.ColorUIResource;
+import javax.swing.plaf.basic.BasicScrollBarUI;
+import javax.swing.text.DefaultCaret;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -19,6 +22,8 @@ public class Terminal extends JFrame {
     private final JTextField inputField;
     private final JLabel promptLabel;
 
+    private String prompt = System.getProperty("user.name") + "@" + System.getProperty("host.name") + " ~ $ ";
+
     public Terminal(String vfsPath, String logPath, String scriptPath) {
         this.vfsPath = vfsPath;
         this.logPath = logPath;
@@ -26,11 +31,23 @@ public class Terminal extends JFrame {
 
         setTitle("Terminal");
         setSize(800, 500);
+        setUndecorated(true);
+        this.getRootPane().setBorder(BorderFactory.createLineBorder(new Color(50, 50 ,50), 10));
+
+        JPanel titleBar = new JPanel(new BorderLayout());
+        titleBar.setBackground(new Color(30, 30, 30));
+        titleBar.setPreferredSize(new Dimension(800, 40));
+
+        JLabel titleLabel = new JLabel(" Terminal ", SwingConstants.CENTER);
+        titleLabel.setForeground(new Color(200, 200, 200));
+        titleLabel.setFont(new Font("Brass Mono", Font.BOLD, 20));
+        titleBar.add(titleLabel, BorderLayout.CENTER);
+
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
         Color bg = new Color(15, 15, 15);
         Color fg = new Color(200, 200, 200);
-        Color prompt = new Color(0, 200, 0);
+        Color promptColor = new Color(0, 200, 0);
 
         outputArea = new JTextArea();
         outputArea.setEditable(false);
@@ -38,14 +55,17 @@ public class Terminal extends JFrame {
         outputArea.setForeground(fg);
         outputArea.setCaretColor(fg);
         outputArea.setFont(new Font("Brass Mono", Font.PLAIN, 24));
+        DefaultCaret caret = (DefaultCaret) outputArea.getCaret();
+        caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 
         JScrollPane scrollPane = new JScrollPane(outputArea);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
 
         promptLabel = new JLabel("user@this-pc ~ $ ");
         promptLabel.setFont(new Font("Brass Mono", Font.BOLD, 24));
         promptLabel.setBackground(bg);
-        promptLabel.setForeground(prompt);
+        promptLabel.setForeground(promptColor);
 
         inputField = new JTextField();
         inputField.setFont(new Font("Brass Mono", Font.PLAIN, 24));
@@ -68,7 +88,9 @@ public class Terminal extends JFrame {
             }
         });
 
+
         this.setLayout(new BorderLayout());
+        this.add(titleBar, BorderLayout.NORTH);
         this.add(scrollPane, BorderLayout.CENTER);
         this.add(inputPanel, BorderLayout.SOUTH);
 
@@ -93,17 +115,21 @@ public class Terminal extends JFrame {
 
         switch (command) {
             case "ls":
-                outputArea.setText("Command: ls\nArgs: ");
+                outputArea.append(prompt + input + "\n");
+                outputArea.append("Command: ls\nArgs: ");
                 for (String arg : arguments) {
                     outputArea.append(arg + ' ');
                 }
+                outputArea.append("\n");
                 logEvent(command, arguments, "Executed successfully", false);
                 return 0;
             case "cd":
-                outputArea.setText("Command: cd\nArgs: ");
+                outputArea.append(prompt + input + "\n");
+                outputArea.append("Command: cd\nArgs: ");
                 for (String arg : arguments) {
                     outputArea.append(arg + ' ');
                 }
+                outputArea.append("\n");
                 logEvent(command, arguments, "Executed successfully", false);
                 return 0;
             case "clear":
@@ -111,16 +137,17 @@ public class Terminal extends JFrame {
                 logEvent(command, arguments, "Screen cleared", false);
                 return 0;
             case "echo":
+                outputArea.append(prompt + input + "\n");
                 try {
                     if (arguments.length > 0 && arguments[0].equals("$HOME")) {
                         arguments[0] = System.getProperty("user.home");
                     }
-                    outputArea.setText(arguments[0]);
+                    outputArea.append(arguments[0] + "\n");
                     logEvent(command, arguments, "Echo output", false);
                     return 0;
                 }
                 catch (Exception e) {
-                    outputArea.setText("Error is echo command");
+                    outputArea.append("Error is echo command");
                     logEvent(command, arguments, e.getMessage(), true);
                     return -1;
                 }
@@ -130,7 +157,8 @@ public class Terminal extends JFrame {
                 return 0;
 
             default:
-                outputArea.setText("Unknown command");
+                outputArea.append(prompt + input + "\n");
+                outputArea.append("Unknown command\n");
                 logEvent(command, arguments, "Unknown command", true);
                 return -1;
         }
@@ -157,7 +185,6 @@ public class Terminal extends JFrame {
         try (BufferedReader br = new BufferedReader(new FileReader(scriptPath))) {
             String line;
             while ((line = br.readLine()) != null) {
-                outputArea.append(promptLabel.getText() + line + "\n");
                 try {
                     if (handleCommand(line) != 0) {
                         break;

@@ -1,0 +1,6 @@
+echo Hello, world!
+ls Documents
+cd /Users
+echo $HOME
+unknownCommand
+echo This will never be executed
